@@ -314,20 +314,45 @@ body.is-map-view .fab{display:none}
 .map-pill-accent{background:var(--lime);color:var(--lime-ink)}
 
 /* Leaflet overrides */
-.valve-marker span{display:block;width:20px;height:20px;border-radius:50%;border:3px solid #0b0d11;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-.valve-marker.is-fixed span{opacity:.4}
+.valve-note{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:3px solid #0b0d11;background-size:cover;background-position:center;box-shadow:0 3px 12px rgba(0,0,0,.5);position:relative}
+.valve-note.has-photo{border-width:4px;border-color:var(--marker-color)}
+.valve-note .icon{width:18px;height:18px;color:#fff;stroke-width:2.4}
+.valve-note.is-dark-icon .icon{color:#14161b}
+.valve-note.is-fixed{opacity:.5}
+.valve-note.is-new::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--marker-color);animation:marker-pulse 1.6s ease-out infinite;pointer-events:none}
+@keyframes marker-pulse{0%{transform:scale(.72);opacity:.85}100%{transform:scale(1.45);opacity:0}}
 .cluster-lime div{width:40px;height:40px;border-radius:50%;background:var(--lime);color:#12140a;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:3px solid #0b0d11;box-shadow:0 4px 16px rgba(0,0,0,.45)}
 .leaflet-popup-content-wrapper{background:var(--dark-surface-2);color:#fff;border-radius:var(--radius-md);box-shadow:0 14px 30px rgba(0,0,0,.5)}
 .leaflet-popup-tip{background:var(--dark-surface-2)}
-.leaflet-popup-content{margin:12px 14px;min-width:180px}
-.popup-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.popup-status{font-size:12.5px;font-weight:600;margin-bottom:2px}
-.popup-meta{font-size:11.5px;color:#9aa0ab}
-.popup-actions{display:flex;gap:8px;margin-top:10px}
-.popup-btn{flex:1;text-align:center;font-size:12px;font-weight:700;padding:7px 8px;border-radius:8px;background:var(--dark-surface);color:#e5e7eb;border:1px solid var(--dark-border)}
+.leaflet-popup-content{margin:12px 14px;min-width:200px}
+.popup-title{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.popup-badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:5px}
+.popup-note{font-size:12.5px;color:#c7cbd4;line-height:1.4;margin-top:8px}
+.popup-photo{width:100%;height:120px;object-fit:cover;border-radius:10px;margin-top:8px;cursor:pointer;display:block}
+.popup-footer{font-size:11px;color:#8b93a1;margin-top:8px}
+.popup-actions{display:flex;gap:8px;margin-top:8px}
+.popup-btn{flex:1;text-align:center;font-size:12px;font-weight:700;padding:7px 8px;border-radius:8px;background:var(--dark-surface);color:#e5e7eb;border:1px solid var(--dark-border);display:flex;align-items:center;justify-content:center;gap:4px}
+.popup-btn .icon{width:13px;height:13px}
 .popup-btn-primary{background:var(--lime);color:var(--lime-ink);border:none}
+.popup-btn-danger{flex:0 0 auto;padding:7px 10px;background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)}
 .leaflet-control-attribution{background:rgba(15,17,21,.6) !important;color:#8b93a1 !important}
 .leaflet-control-attribution a{color:#c8cdd6 !important}
+
+/* ===== Lightbox ===== */
+.lightbox{position:fixed;inset:0;background:rgba(4,5,8,.94);display:flex;align-items:center;justify-content:center;z-index:400;opacity:0;pointer-events:none;transition:opacity .2s}
+.lightbox.open{opacity:1;pointer-events:auto}
+.lightbox img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:var(--radius-md)}
+.lightbox-close{position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:flex;align-items:center;justify-content:center}
+.lightbox-close .icon{width:20px;height:20px}
+
+/* ===== Quick photo-report sheet ===== */
+.quick-photo-row{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.quick-photo-thumb{width:64px;height:64px;flex:0 0 64px;border-radius:var(--radius-md);background:var(--dark-surface-2) center/cover no-repeat}
+.quick-photo-meta{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--dark-text-dim);min-width:0}
+.quick-gps-status{display:flex;align-items:center;gap:6px}
+.quick-gps-status .icon{width:13px;height:13px;flex:0 0 auto}
+.quick-time{display:flex;align-items:center;gap:6px}
+.quick-time .icon{width:13px;height:13px;flex:0 0 auto}
 
 /* ===== Toast ===== */
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 96px);transform:translateX(-50%) translateY(10px);background:var(--dark-surface-2);color:#fff;font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:999px;border:1px solid var(--dark-border);box-shadow:0 10px 26px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:300}
@@ -380,6 +405,23 @@ body.is-map-view .fab{display:none}
   </div>
 </div>
 
+<div class="sheet-overlay" id="quickOverlay">
+  <div class="sheet" id="quickSheet" role="dialog" aria-modal="true" aria-label="Snabbrapport">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-header-title">Snabbrapport</div>
+      <button class="sheet-close" id="quickCloseBtn" aria-label="Stäng"></button>
+    </div>
+    <div class="sheet-body" id="quickBody"></div>
+    <div class="sheet-footer" id="quickFooter"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="photoLightbox">
+  <button class="lightbox-close" id="lightboxCloseBtn"></button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
 <input type="file" id="photoInputHidden" accept="image/*" capture="environment" style="display:none">
 <div class="toast" id="toast"></div>
 
@@ -409,6 +451,18 @@ const DEFECT_COLORS = {
   'Trasig':'#ef4444', 'Trög':'#f43f5e', 'Övertäckt':'#8b5cf6',
   'Betäckning defekt':'#d946ef', 'Ej kontrollerad':'#64748b', 'Åtgärdad':'#22c55e',
 };
+const MARKER_STYLE = {
+  'Trasig':            { color:'#ef4444', icon:'x',        dark:false },
+  'Trög':               { color:'#f97316', icon:'alert',    dark:true  },
+  'Övertäckt':          { color:'#eab308', icon:'layers',   dark:true  },
+  'Betäckning defekt':  { color:'#6b7280', icon:'wrench',   dark:false },
+  'Ej kontrollerad':    { color:'#ffffff', icon:'question', dark:true  },
+  'Åtgärdad':           { color:'#22c55e', icon:'check',    dark:false },
+};
+function markerCategory(v){
+  const cat = (v.fullStatus||'').split(' - ')[0];
+  return MARKER_STYLE[cat] ? cat : 'Ej kontrollerad';
+}
 const AREAS = ['Tullinge','Tumba','Vårsta','Grödinge','Norra'];
 const ACTION_GROUPS = ['Trög','Betäckning defekt','Övertäckt','Ej kontrollerad','Övrigt'];
 const NAV_ITEMS = [
@@ -437,6 +491,8 @@ const ICONS = {
   route:'<path d="m3 11 18-8-8 18-2.5-8L3 11Z"/>',
   trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/>',
   photo:'<path d="M3 5h18v14H3z"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 15-5-4-4 3-3-2-6 5"/>',
+  layers:'<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
+  question:'<path d="M9.5 9a2.5 2.5 0 1 1 3.7 2.2c-1 .5-1.7 1.2-1.7 2.3"/><circle cx="12" cy="17.5" r=".6" fill="currentColor" stroke="none"/>',
 };
 function svg(name, cls){
   return `<svg class="icon ${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
@@ -535,7 +591,7 @@ function ventilCard(v, withAction){
         ${v.fixed?`<span class="fixed-badge">${svg('check')} Åtgärdad</span>`:''}
       </div>
       <div class="card-status" style="color:${statusColor}">${esc(v.fullStatus)}</div>
-      <div class="card-meta">${esc(v.area)}${v.location?' · '+esc(v.location):''}</div>
+      <div class="card-meta">${[v.area, v.location].filter(Boolean).map(esc).join(' · ')}</div>
       <div class="card-meta card-meta-faint">${esc(v.date)}</div>
       ${withAction && !v.fixed?`<button class="card-fix-btn" data-action="fix" data-id="${v.id}">${svg('check')} Markera åtgärdad</button>`:''}
     </div>
@@ -699,28 +755,36 @@ function renderMapView(){
   renderMapMarkers();
   renderMapListPanel();
 }
-function makeIcon(type, fixed){
-  const t = VALVE_TYPES.find(x=>x.code===type);
-  const color = t ? t.color : '#888';
-  return L.divIcon({
-    className: 'valve-marker' + (fixed?' is-fixed':''),
-    html: `<span style="background:${color}"></span>`,
-    iconSize: [22,22], iconAnchor: [11,11], popupAnchor: [0,-14],
-  });
+function makeValveIcon(v){
+  const cat = markerCategory(v);
+  const style = MARKER_STYLE[cat];
+  const isNew = (Date.now() - v.ts) < 5*60*1000;
+  const classes = ['valve-note'];
+  if(v.photo) classes.push('has-photo');
+  if(style.dark) classes.push('is-dark-icon');
+  if(v.fixed) classes.push('is-fixed');
+  if(isNew) classes.push('is-new');
+  const bg = v.photo ? `background-image:url('${v.photo}')` : `background-color:${style.color}`;
+  const html = `<span class="${classes.join(' ')}" style="--marker-color:${style.color};${bg}">${v.photo ? '' : svg(style.icon)}</span>`;
+  return L.divIcon({ className:'valve-note-anchor', html, iconSize:[40,40], iconAnchor:[20,20], popupAnchor:[0,-24] });
 }
 function clusterIconFn(cluster){
   return L.divIcon({ html: `<div>${cluster.getChildCount()}</div>`, className: 'cluster-lime', iconSize: L.point(40,40) });
 }
 function popupHtml(v){
-  const t = VALVE_TYPES.find(x=>x.code===v.type) || {color:'#888'};
+  const cat = markerCategory(v);
+  const style = MARKER_STYLE[cat];
+  const note = v.note ? esc(v.note.length>90 ? v.note.slice(0,90)+'…' : v.note) : '';
   return `<div class="popup-card">
-    <div class="popup-top"><span class="type-badge" style="background:${t.color}">${v.type}</span><strong>${esc(v.ventilNr)}</strong></div>
-    <div class="popup-status" style="color:${defectColor(v.fullStatus)}">${esc(v.fullStatus)}</div>
-    <div class="popup-meta">${esc(v.area)}${v.location?' · '+esc(v.location):''}</div>
-    <div class="popup-meta">${esc(v.date)}</div>
+    <div class="popup-title">${esc(v.ventilNr)}</div>
+    <span class="popup-badge" style="background:${style.color};color:${style.dark?'#14161b':'#fff'}">${esc(v.fullStatus)}</span>
+    ${note ? `<div class="popup-note">${note}</div>` : ''}
+    ${v.photo ? `<img class="popup-photo" src="${v.photo}" onclick="openLightbox('${v.id}')">` : ''}
+    <div class="popup-footer">${esc(v.date)} · ${esc(v.reportedBy)}${v.lat!=null?` · ${v.lat.toFixed(4)}, ${v.lng.toFixed(4)}`:''}</div>
+    <div class="popup-actions"><button class="popup-btn popup-btn-primary" onclick="openDetail('${v.id}')">Visa detaljer</button></div>
     <div class="popup-actions">
-      <a class="popup-btn" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">${svg('route')} Rutt</a>
-      <button class="popup-btn popup-btn-primary" onclick="openDetail('${v.id}')">Visa</button>
+      ${v.lat!=null?`<a class="popup-btn" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">${svg('route')} Rutt</a>`:''}
+      <button class="popup-btn popup-btn-danger" onclick="deleteFromPopup('${v.id}')">${svg('trash')}</button>
     </div>
   </div>`;
 }
@@ -747,7 +811,7 @@ function renderMapMarkers(){
   markersLayer.clearLayers();
   ventiler.forEach(v => {
     if(v.lat==null || v.lng==null) return;
-    const m = L.marker([v.lat, v.lng], { icon: makeIcon(v.type, v.fixed) });
+    const m = L.marker([v.lat, v.lng], { icon: makeValveIcon(v) });
     m.bindPopup(popupHtml(v), { className:'valve-popup' });
     markersLayer.addLayer(m);
   });
@@ -988,6 +1052,21 @@ function deleteVentil(id){
   if(mapInited) renderMapMarkers();
   toast('Borttagen');
 }
+window.deleteFromPopup = function(id){
+  if(!confirm('Ta bort denna rapport?')) return;
+  if(map) map.closePopup();
+  deleteVentil(id);
+};
+window.openLightbox = function(id){
+  const v = ventiler.find(x=>x.id===id);
+  if(!v || !v.photo) return;
+  $('#lightboxImg').src = v.photo;
+  $('#photoLightbox').classList.add('open');
+};
+function closeLightbox(){
+  $('#photoLightbox').classList.remove('open');
+  $('#lightboxImg').src = '';
+}
 function handleStatFilter(filter){
   if(filter==='all'){ showView('stats'); return; }
   if(filter==='Trasig'){ showView('broken'); return; }
@@ -1002,7 +1081,7 @@ function compressImage(file){
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1280;
+        const maxDim = 800;
         let { width, height } = img;
         if(width > maxDim || height > maxDim){
           if(width > height){ height = Math.round(height * maxDim / width); width = maxDim; }
@@ -1011,7 +1090,7 @@ function compressImage(file){
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.72));
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
       img.onerror = reject;
       img.src = reader.result;
@@ -1028,7 +1107,7 @@ async function handlePhotoInputChange(e){
   let dataUrl;
   try{ dataUrl = await compressImage(file); }
   catch(err){ toast('Kunde inte läsa bilden'); return; }
-  if(photoAddMode === 'quick'){ openAddSheet({ photo: dataUrl }); locateMeSilent(); }
+  if(photoAddMode === 'quick'){ openQuickSheet(dataUrl); }
   else { addState.photo = dataUrl; renderAddSheet(); }
 }
 async function reverseGeocode(lat, lng){
@@ -1038,17 +1117,6 @@ async function reverseGeocode(lat, lng){
     const addr = d.address || {};
     return addr.road ? (addr.road + (addr.house_number?' '+addr.house_number:'')) : (d.display_name ? d.display_name.split(',')[0] : '');
   }catch(err){ return ''; }
-}
-function locateMeSilent(){
-  if(!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    addState.lat = pos.coords.latitude;
-    addState.lng = pos.coords.longitude;
-    if(addStep===3) renderAddSheet();
-    reverseGeocode(addState.lat, addState.lng).then(guess => {
-      if(guess){ addState.location = guess; if(addStep===3) renderAddSheet(); }
-    });
-  }, () => {}, { enableHighAccuracy:true, timeout:10000 });
 }
 function fetchLocation(){
   if(!navigator.geolocation){ toast('GPS stöds inte i den här webbläsaren'); return; }
@@ -1069,6 +1137,120 @@ function fetchLocation(){
 }
 function quickPhotoAdd(){ photoAddMode = 'quick'; $('#photoInputHidden').click(); }
 
+/* ===== Quick photo-report sheet (camera-first, Buildie-style) ===== */
+let quickState = null;
+function openQuickSheet(photoDataUrl){
+  quickState = { type:'VAV', number:'', defekt:null, detail:null, note:'', lat:null, lng:null, location:'', photo:photoDataUrl, gpsStatus:'pending', ts:Date.now() };
+  $('#quickOverlay').classList.add('open');
+  document.body.classList.add('sheet-open');
+  renderQuickSheet();
+  locateQuickGPS();
+}
+function closeQuickSheet(){
+  $('#quickOverlay').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+  quickState = null;
+}
+function canQuickSave(){ return !!quickState && quickState.number.length > 0 && !!quickState.defekt; }
+function quickGpsLine(){
+  if(!quickState) return '';
+  if(quickState.gpsStatus==='pending') return `${svg('crosshair')} Hämtar position…`;
+  if(quickState.gpsStatus==='error') return `${svg('crosshair')} Ingen position`;
+  if(quickState.gpsStatus==='none') return `${svg('crosshair')} GPS stöds inte`;
+  return `${svg('pin')} ${quickState.lat.toFixed(5)}, ${quickState.lng.toFixed(5)}${quickState.location?' · '+esc(quickState.location):''}`;
+}
+function updateQuickGpsStatus(){
+  const el = $('#quickGpsStatus');
+  if(el) el.innerHTML = quickGpsLine();
+}
+function locateQuickGPS(){
+  if(!navigator.geolocation){ quickState.gpsStatus = 'none'; updateQuickGpsStatus(); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    if(!quickState) return;
+    quickState.lat = pos.coords.latitude;
+    quickState.lng = pos.coords.longitude;
+    quickState.gpsStatus = 'ok';
+    updateQuickGpsStatus();
+    reverseGeocode(quickState.lat, quickState.lng).then(guess => {
+      if(guess && quickState){ quickState.location = guess; updateQuickGpsStatus(); }
+    });
+  }, () => { if(quickState){ quickState.gpsStatus = 'error'; updateQuickGpsStatus(); } }, { enableHighAccuracy:true, timeout:10000 });
+}
+function renderQuickFooter(){
+  $('#quickFooter').innerHTML = `
+    <button class="btn-ghost" id="quickCancelBtn">Avbryt</button>
+    <button class="btn-primary" id="quickSaveBtn" ${canQuickSave()?'':'disabled'}>${svg('check')} Spara</button>
+  `;
+}
+function renderQuickSheet(){
+  const s = quickState;
+  const mainTypes = ['VAV','VBP'];
+  const moreTypes = VALVE_TYPES.filter(t => !mainTypes.includes(t.code));
+  $('#quickBody').innerHTML = `
+    <div class="quick-photo-row">
+      <div class="quick-photo-thumb" style="background-image:url('${s.photo}')"></div>
+      <div class="quick-photo-meta">
+        <div class="quick-gps-status" id="quickGpsStatus">${quickGpsLine()}</div>
+        <div class="quick-time">${svg('check')} ${new Date(s.ts).toLocaleString('sv-SE')}</div>
+      </div>
+    </div>
+    <div class="field-label" style="margin-top:0">Typ &amp; nummer</div>
+    <div class="type-grid-main">
+      ${mainTypes.map(code => {
+        const t = VALVE_TYPES.find(x=>x.code===code);
+        return `<button class="type-chip big ${s.type===code?'selected':''}" data-qtype="${code}" style="--c:${t.color}"><strong>${code}</strong><span>${t.name}</span></button>`;
+      }).join('')}
+    </div>
+    <div class="type-grid-more">
+      ${moreTypes.map(t => `<button class="type-chip ${s.type===t.code?'selected':''}" data-qtype="${t.code}" style="--c:${t.color}">${t.code}</button>`).join('')}
+    </div>
+    <div class="number-input-wrap">
+      <span class="number-prefix">${s.type}-</span>
+      <input id="qNumberInput" class="number-input" inputmode="numeric" pattern="[0-9]*" placeholder="74259" value="${esc(s.number)}">
+    </div>
+    <div class="field-label">Problem</div>
+    <div class="defect-grid">${Object.keys(DEFECTS).map(d => `<button class="defect-chip ${s.defekt===d?'selected':''}" data-qdefekt="${esc(d)}" style="--c:${DEFECT_COLORS[d]}">${esc(d)}</button>`).join('')}</div>
+    ${s.defekt ? `<div class="detail-grid" style="margin-top:10px">${DEFECTS[s.defekt].map(d => `<button class="detail-chip ${s.detail===d?'selected':''}" data-qdetail="${esc(d)}">${esc(d)}</button>`).join('')}</div>` : ''}
+    <div class="field-label">Notering</div>
+    <textarea id="qNoteInput" class="textarea" rows="3" placeholder="Skriv en kort notering…">${esc(s.note)}</textarea>
+  `;
+  renderQuickFooter();
+  const numInput = $('#qNumberInput');
+  if(numInput){
+    numInput.addEventListener('input', e => {
+      quickState.number = e.target.value.replace(/\D/g,'');
+      e.target.value = quickState.number;
+      renderQuickFooter();
+    });
+  }
+  const noteInput = $('#qNoteInput');
+  if(noteInput) noteInput.addEventListener('input', e => quickState.note = e.target.value);
+}
+function saveQuickReport(){
+  const s = quickState;
+  const v = {
+    id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    ts: Date.now(),
+    ventilNr: `${s.type}-${s.number}`,
+    type: s.type,
+    area: '',
+    location: s.location || '',
+    fullStatus: s.defekt + (s.detail ? ' - '+s.detail : ''),
+    note: s.note || '',
+    reportedBy: currentUser,
+    fixed: s.defekt === 'Åtgärdad' && s.detail === 'OK',
+    lat: s.lat, lng: s.lng,
+    date: new Date().toLocaleString('sv-SE'),
+    photo: s.photo || null,
+  };
+  ventiler.push(v);
+  persist();
+  closeQuickSheet();
+  toast('Sparat! ' + v.ventilNr);
+  showView(currentView);
+  if(mapInited) renderMapMarkers();
+}
+
 /* ===== Global click delegation ===== */
 function handleGlobalClick(e){
   let t;
@@ -1077,6 +1259,13 @@ function handleGlobalClick(e){
   if((t = e.target.closest('#stepSave'))){ saveReport(); return; }
   if((t = e.target.closest('#addCloseBtn'))){ closeAddSheet(); return; }
   if((t = e.target.closest('#detailCloseBtn'))){ closeDetailSheet(); return; }
+  if((t = e.target.closest('#quickCloseBtn'))){ closeQuickSheet(); return; }
+  if((t = e.target.closest('#quickCancelBtn'))){ closeQuickSheet(); return; }
+  if((t = e.target.closest('#quickSaveBtn'))){ if(canQuickSave()) saveQuickReport(); return; }
+  if((t = e.target.closest('[data-qtype]'))){ quickState.type = t.dataset.qtype; renderQuickSheet(); return; }
+  if((t = e.target.closest('[data-qdefekt]'))){ quickState.defekt = t.dataset.qdefekt; quickState.detail = null; renderQuickSheet(); return; }
+  if((t = e.target.closest('[data-qdetail]'))){ quickState.detail = quickState.detail===t.dataset.qdetail ? null : t.dataset.qdetail; renderQuickSheet(); return; }
+  if((t = e.target.closest('#lightboxCloseBtn'))){ closeLightbox(); return; }
   if((t = e.target.closest('[data-type]'))){ addState.type = t.dataset.type; renderAddSheet(); return; }
   if((t = e.target.closest('[data-defekt]'))){ addState.defekt = t.dataset.defekt; addState.detail = null; renderAddSheet(); return; }
   if((t = e.target.closest('[data-detail]'))){ addState.detail = addState.detail===t.dataset.detail ? null : t.dataset.detail; renderAddSheet(); return; }
@@ -1124,10 +1313,16 @@ function handleGlobalClick(e){
 /* ===== Init ===== */
 function init(){
   buildChrome();
+  $('#addCloseBtn').innerHTML = svg('x');
+  $('#detailCloseBtn').innerHTML = svg('x');
+  $('#quickCloseBtn').innerHTML = svg('x');
+  $('#lightboxCloseBtn').innerHTML = svg('x');
   document.addEventListener('click', handleGlobalClick);
   $('#photoInputHidden').addEventListener('change', handlePhotoInputChange);
   $('#addOverlay').addEventListener('click', e => { if(e.target.id==='addOverlay') closeAddSheet(); });
   $('#detailOverlay').addEventListener('click', e => { if(e.target.id==='detailOverlay') closeDetailSheet(); });
+  $('#quickOverlay').addEventListener('click', e => { if(e.target.id==='quickOverlay') closeQuickSheet(); });
+  $('#photoLightbox').addEventListener('click', closeLightbox);
   window.addEventListener('hashchange', () => {
     const v = location.hash.slice(1);
     if(v && v!==currentView && NAV_ITEMS.some(n=>n.id===v)) showView(v);
