@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VentPro</title>
+<meta name="description" content="VentPro – snabb fältrapportering av VA-ventiler. Foto, GPS och tid sparas automatiskt.">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230f1115'/%3E%3Cpath d='M12 4s6 6.2 6 10.2A6 6 0 1 1 6 14.2C6 10.2 12 4 12 4z' fill='%23d6ff57'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<style>
+/* ===== Reset & base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background:var(--bg);
+  color:var(--text);
+  overscroll-behavior-y:none;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+::selection{background:var(--lime);color:#0b0d11}
+body.sheet-open{overflow:hidden}
+
+/* ===== Design tokens ===== */
+:root{
+  --bg:#0f1115;
+  --card:#1a1d24;
+  --card-2:#20242c;
+  --border:#262a33;
+  --text:#f4f5f7;
+  --text-dim:#9aa0ab;
+  --text-faint:#666d7a;
+  --lime:#d6ff57;
+  --lime-ink:#12140a;
+  --cyan:#22d3ee;
+  --danger:#ef4444;
+  --danger-ink:#2a0d0d;
+  --radius-xl:32px;
+  --radius-lg:24px;
+  --radius-md:16px;
+  --radius-sm:10px;
+  --nav-h:56px;
+  --dark-surface:#12141a;
+  --dark-surface-2:#181b22;
+  --dark-border:#262a33;
+  --dark-text:#f4f5f7;
+  --dark-text-dim:#8b93a1;
+}
+@media (min-width:1024px){
+  :root{
+    --bg:#f6f7f9;
+    --card:#ffffff;
+    --card-2:#eef0f3;
+    --border:#e3e5ea;
+    --text:#12141a;
+    --text-dim:#5b6270;
+    --text-faint:#8a90a0;
+  }
+}
+
+/* ===== App shell ===== */
+#app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg)}
+.main-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.sidebar{display:none}
+.topbar{
+  flex:0 0 auto;height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;background:var(--dark-surface);border-bottom:1px solid var(--dark-border);
+  position:sticky;top:0;z-index:30;
+}
+.topbar-brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;letter-spacing:-.02em;color:var(--dark-text)}
+.topbar-brand .icon{width:22px;height:22px;color:var(--lime)}
+.topbar-user{font-size:13px;font-weight:600;color:var(--dark-text-dim);padding:6px 12px;background:var(--dark-surface-2);border-radius:999px}
+.content{flex:1;min-height:0;overflow-y:auto;padding:18px 16px calc(var(--nav-h) + 96px)}
+.content.content--map{padding:0;overflow:hidden;display:flex}
+.view{display:none}
+.view.active{display:block}
+#view-map.active{display:flex;flex:1;min-height:0;flex-direction:column}
+
+/* ===== Icons ===== */
+.icon{width:20px;height:20px;flex:0 0 auto}
+
+/* ===== Bottom nav (mobile) ===== */
+.bottom-nav{
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
+  width:calc(100% - 24px);max-width:460px;height:var(--nav-h);
+  background:rgba(18,20,26,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.07);border-radius:999px;
+  display:flex;align-items:center;justify-content:space-around;
+  box-shadow:0 14px 34px rgba(0,0,0,.45);z-index:60;
+}
+.bn-item{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--dark-text-dim);border-radius:999px;transition:color .15s}
+.bn-item .icon{width:19px;height:19px}
+.bn-item span:last-child{font-size:9.5px;font-weight:600}
+.bn-item.active{color:var(--lime)}
+
+/* ===== FAB ===== */
+.fab{
+  position:fixed;right:18px;bottom:calc(var(--nav-h) + 30px);
+  width:58px;height:58px;border-radius:50%;background:var(--lime);color:var(--lime-ink);
+  display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(214,255,87,.35),0 4px 12px rgba(0,0,0,.35);
+  z-index:60;transition:transform .15s;
+}
+.fab:active{transform:scale(.92)}
+.fab .icon{width:26px;height:26px;stroke-width:2.6}
+body.is-map-view .fab{display:none}
+
+/* ===== Desktop layout ===== */
+@media (min-width:1024px){
+  #app{flex-direction:row}
+  .sidebar{
+    display:flex;flex-direction:column;width:260px;flex:0 0 260px;height:100vh;position:sticky;top:0;
+    background:var(--dark-surface);border-right:1px solid var(--dark-border);padding:22px 16px;gap:6px;
+  }
+  .sidebar-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;color:var(--dark-text);padding:6px 10px 22px;letter-spacing:-.02em}
+  .sidebar-brand .icon{width:24px;height:24px;color:var(--lime)}
+  .sidebar-nav{display:flex;flex-direction:column;gap:2px;flex:1}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--radius-sm);color:var(--dark-text-dim);font-weight:600;font-size:14.5px;transition:background .15s,color .15s}
+  .nav-item .icon{width:19px;height:19px}
+  .nav-item:hover{background:var(--dark-surface-2);color:var(--dark-text)}
+  .nav-item.active{background:var(--dark-surface-2);color:var(--lime)}
+  .sidebar-add{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--lime);color:var(--lime-ink);font-weight:700;padding:13px;border-radius:var(--radius-sm);margin-top:10px}
+  .sidebar-add .icon{width:18px;height:18px}
+  .bottom-nav,.fab{display:none}
+  .content{padding:28px 32px 40px}
+  .map-list-panel{display:flex !important}
+}
+
+/* ===== Buttons ===== */
+.btn-primary{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--lime);color:var(--lime-ink);font-weight:700;font-size:15px;padding:14px 18px;border-radius:var(--radius-md);width:100%;transition:opacity .15s,transform .1s}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.35;pointer-events:none}
+.btn-primary .icon{width:18px;height:18px}
+.btn-ghost{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--dark-surface-2);color:var(--dark-text);font-weight:600;font-size:14px;padding:13px 16px;border-radius:var(--radius-md);border:1px solid var(--dark-border)}
+.btn-ghost .icon{width:16px;height:16px}
+.btn-danger{display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(239,68,68,.12);color:var(--danger);font-weight:700;font-size:14px;padding:13px 16px;border-radius:var(--radius-md);width:100%;margin-top:18px;border:1px solid rgba(239,68,68,.25)}
+.btn-danger .icon{width:16px;height:16px}
+.btn-icon-square{width:50px;height:50px;flex:0 0 50px;border-radius:var(--radius-sm);background:var(--card-2);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center}
+.btn-icon-square.loading{opacity:.5;pointer-events:none}
+.btn-icon-square .icon{width:19px;height:19px}
+
+/* ===== Page headers ===== */
+.page-head{margin-bottom:18px}
+.page-head h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.page-sub{color:var(--text-dim);font-size:13.5px;margin-top:3px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
+.section-head h2{font-size:15px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
+
+/* ===== Stat grid (home) ===== */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat-tile{
+  --accent:var(--cyan);
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:16px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;
+  position:relative;overflow:hidden;
+}
+.stat-tile::after{content:'';position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;background:var(--accent);opacity:.14}
+.stat-tile .icon{width:18px;height:18px;color:var(--accent)}
+.stat-num{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.stat-label{font-size:12.5px;color:var(--text-dim);font-weight:600}
+@media (min-width:1024px){.stat-grid{grid-template-columns:repeat(5,1fr)}}
+
+/* ===== Cards ===== */
+.card-list{display:flex;flex-direction:column;gap:10px}
+.card{display:flex;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:var(--text-faint)}
+.card-thumb{width:62px;height:62px;border-radius:var(--radius-md);background:var(--card-2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--text-faint);flex:0 0 62px}
+.card-thumb .icon{width:22px;height:22px}
+.card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.card-top{display:flex;align-items:center;gap:8px}
+.card-top strong{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.type-badge{font-size:10.5px;font-weight:800;color:#fff;padding:3px 7px;border-radius:6px;letter-spacing:.02em}
+.fixed-badge{display:flex;align-items:center;gap:3px;margin-left:auto;font-size:11px;font-weight:700;color:#22c55e;background:rgba(34,197,94,.12);padding:3px 8px;border-radius:999px}
+.fixed-badge .icon{width:11px;height:11px}
+.card-status{font-size:13.5px;font-weight:600}
+.card-meta{font-size:12.5px;color:var(--text-dim)}
+.card-meta-faint{color:var(--text-faint);font-size:11.5px}
+.card-fix-btn{display:flex;align-items:center;gap:6px;margin-top:6px;align-self:flex-start;font-size:12px;font-weight:700;color:var(--lime-ink);background:var(--lime);padding:7px 12px;border-radius:999px}
+.card-fix-btn .icon{width:12px;height:12px}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:50px 20px;color:var(--text-dim)}
+.empty-state .icon{width:34px;height:34px;color:var(--text-faint)}
+.empty-state p{font-size:14px}
+.empty-state .btn-primary{width:auto;padding:12px 22px}
+
+/* ===== Groups (Åtgärder) ===== */
+.group-section{margin-bottom:26px;border-radius:var(--radius-lg);transition:background .3s}
+.group-section.flash{background:rgba(214,255,87,.08)}
+.group-head{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14.5px;margin-bottom:10px}
+.count-pill{background:var(--card-2);color:var(--text-dim);font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px}
+
+/* ===== KPI / Stats ===== */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:4px}
+.kpi-num{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.kpi-label{font-size:12.5px;color:var(--text-dim);font-weight:600}
+@media (min-width:1024px){.kpi-grid{grid-template-columns:repeat(4,1fr)}}
+.bar-list{display:flex;flex-direction:column;gap:14px}
+.bar-row-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:6px}
+.bar-track{height:9px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.bar-fill{height:100%;border-radius:999px;transition:width .4s}
+
+/* ===== Profile ===== */
+.profile-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:10px}
+.profile-avatar{width:56px;height:56px;border-radius:50%;background:var(--lime);color:var(--lime-ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;margin-bottom:6px}
+.profile-stat{font-size:13.5px;color:var(--text-dim)}
+.profile-stat span{color:var(--text);font-weight:800;font-size:15px}
+.app-version{text-align:center;font-size:11.5px;color:var(--text-faint);margin-top:26px}
+
+/* ===== Forms ===== */
+.field-label{font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px}
+.text-input,.textarea{width:100%;background:var(--card-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;font-size:14.5px;color:var(--text)}
+.textarea{resize:vertical;min-height:70px;font-family:inherit}
+.text-input:focus,.textarea:focus{outline:none;border-color:var(--lime)}
+.location-row{display:flex;gap:8px}
+.location-row .text-input{flex:1}
+.gps-chip{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--cyan);background:rgba(34,211,238,.1);padding:5px 10px;border-radius:999px}
+.gps-chip .icon{width:12px;height:12px}
+
+/* ===== Sheets (Add / Detail) ===== */
+.sheet-overlay{position:fixed;inset:0;background:rgba(4,5,8,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:200}
+.sheet-overlay.open{opacity:1;pointer-events:auto}
+.sheet{width:100%;max-width:560px;max-height:90vh;background:var(--dark-surface);color:var(--dark-text);border-radius:32px 32px 0 0;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1)}
+.sheet-overlay.open .sheet{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;background:var(--dark-border);border-radius:999px;margin:12px auto 4px}
+.sheet-header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 4px}
+.sheet-header-title{font-weight:800;font-size:16px}
+.sheet-progress{display:flex;gap:6px}
+.dot{width:22px;height:5px;border-radius:999px;background:var(--dark-border)}
+.dot.filled{background:var(--lime)}
+.sheet-close{width:32px;height:32px;border-radius:50%;background:var(--dark-surface-2);display:flex;align-items:center;justify-content:center;color:var(--dark-text-dim)}
+.sheet-close .icon{width:16px;height:16px}
+.sheet-body{flex:1;overflow-y:auto;padding:14px 20px 6px}
+.sheet-body .field-label:first-child{margin-top:2px}
+.sheet-footer{display:flex;gap:10px;padding:14px 20px 26px;border-top:1px solid var(--dark-border)}
+.sheet-footer .btn-ghost{flex:0 0 auto;padding-left:20px;padding-right:20px}
+.sheet-footer .btn-primary{flex:1}
+.step-title{font-size:19px;font-weight:800;margin-bottom:16px;letter-spacing:-.01em}
+
+/* ===== Chips (add flow) ===== */
+.type-grid-main{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.type-chip{--c:#888;border:1.5px solid var(--dark-border);background:var(--dark-surface-2);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;gap:2px;color:var(--dark-text-dim);text-align:left}
+.type-chip.big strong{font-size:19px;color:var(--dark-text)}
+.type-chip.big span{font-size:12px}
+.type-chip.selected{border-color:var(--c);background:color-mix(in srgb, var(--c) 20%, var(--dark-surface-2));color:var(--dark-text)}
+.type-grid-more{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+.type-grid-more .type-chip{padding:10px 4px;align-items:center;font-weight:700;font-size:12.5px}
+.number-input-wrap{display:flex;align-items:center;background:var(--dark-surface-2);border:1.5px solid var(--dark-border);border-radius:var(--radius-md);padding:4px 4px 4px 16px;margin-top:4px}
+.number-input-wrap:focus-within{border-color:var(--lime)}
+.number-prefix{font-weight:800;font-size:22px;color:var(--dark-text-dim)}
+.number-input{flex:1;background:none;border:none;padding:12px 8px;font-size:22px;font-weight:800;color:var(--dark-text);min-width:0}
+.number-input:focus{outline:none}
+.preview-id{margin-top:12px;font-size:13px;font-weight:700;color:var(--lime);letter-spacing:.02em}
+
+.defect-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.defect-chip{--c:#888;border:1.5px solid var(--dark-border);background:var(--dark-surface-2);border-radius:var(--radius-md);padding:14px 12px;font-weight:700;font-size:14px;color:var(--dark-text-dim);text-align:left}
+.defect-chip.selected{border-color:var(--c);background:color-mix(in srgb, var(--c) 22%, var(--dark-surface-2));color:var(--dark-text)}
+.detail-grid{display:flex;flex-wrap:wrap;gap:8px}
+.detail-chip{border:1.5px solid var(--dark-border);background:var(--dark-surface-2);border-radius:999px;padding:9px 14px;font-size:13px;font-weight:600;color:var(--dark-text-dim)}
+.detail-chip.selected{border-color:var(--lime);color:var(--lime);background:rgba(214,255,87,.1)}
+
+.area-grid{display:flex;flex-wrap:wrap;gap:8px}
+.area-chip{border:1.5px solid var(--dark-border);background:var(--dark-surface-2);border-radius:999px;padding:10px 16px;font-size:13.5px;font-weight:700;color:var(--dark-text-dim)}
+.area-chip.selected{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,.1)}
+
+.photo-zone{margin-top:4px}
+.photo-add-btn{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:30px;border:1.5px dashed var(--dark-border);border-radius:var(--radius-md);color:var(--dark-text-dim);font-weight:600;font-size:13.5px}
+.photo-add-btn .icon{width:26px;height:26px}
+.photo-preview{position:relative;border-radius:var(--radius-md);overflow:hidden;max-height:220px}
+.photo-preview img{width:100%;max-height:220px;object-fit:cover}
+.photo-remove{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(11,13,17,.75);color:#fff;display:flex;align-items:center;justify-content:center}
+.photo-remove .icon{width:15px;height:15px}
+
+.confirm-card{background:var(--dark-surface-2);border:1px solid var(--dark-border);border-radius:var(--radius-lg);padding:18px}
+.confirm-id{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;margin-bottom:14px}
+.confirm-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--dark-border);font-size:13.5px}
+.confirm-row span{color:var(--dark-text-dim)}
+.confirm-note{margin-top:12px;padding-top:12px;border-top:1px solid var(--dark-border);font-size:13.5px;color:var(--dark-text-dim);line-height:1.5}
+.confirm-photo{margin-top:14px;border-radius:var(--radius-md);max-height:200px;width:100%;object-fit:cover}
+.detail-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+
+/* ===== Map ===== */
+.map-layout{flex:1;display:flex;min-height:0;width:100%}
+.map-list-panel{display:none;flex-direction:column;width:320px;flex:0 0 320px;background:var(--dark-surface);border-right:1px solid var(--dark-border);overflow-y:auto}
+.map-list-header{display:flex;align-items:center;gap:10px;padding:16px 16px 10px;font-weight:800;font-size:15px;color:var(--dark-text)}
+.map-list-items{display:flex;flex-direction:column;gap:8px;padding:6px 12px 20px}
+.map-list-items .card{background:var(--dark-surface-2);border-color:var(--dark-border);color:var(--dark-text)}
+.map-list-items .card-meta{color:var(--dark-text-dim)}
+.map-canvas-wrap{position:relative;flex:1;min-width:0}
+.leaflet-map{position:absolute;inset:0;background:#0f1115;z-index:0}
+.map-search{position:absolute;top:14px;left:14px;right:14px;z-index:20;display:flex;align-items:center;gap:8px;background:rgba(18,20,26,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-md);padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.map-search .icon{width:17px;height:17px;color:#8b93a1}
+.map-search input{flex:1;background:none;border:none;color:#fff;font-size:14px}
+.map-search input:focus{outline:none}
+.map-search-results{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--dark-surface-2);border:1px solid var(--dark-border);border-radius:var(--radius-md);overflow:hidden;display:none;max-height:240px;overflow-y:auto;box-shadow:0 12px 26px rgba(0,0,0,.4)}
+.map-search-results.open{display:block}
+.search-result{display:block;width:100%;text-align:left;padding:11px 14px;font-size:13px;color:#e5e7eb;border-bottom:1px solid var(--dark-border)}
+.search-result:last-child{border-bottom:none}
+.search-result:hover{background:rgba(255,255,255,.05)}
+.map-pills{position:absolute;right:14px;bottom:calc(var(--nav-h) + 28px);display:flex;flex-direction:column;gap:10px;z-index:20}
+@media (min-width:1024px){.map-pills{bottom:18px}}
+.map-pill{width:46px;height:46px;border-radius:50%;background:rgba(18,20,26,.82);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);color:#e5e7eb;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.map-pill .icon{width:19px;height:19px}
+.map-pill.active{background:var(--lime);color:var(--lime-ink)}
+.map-pill-accent{background:var(--lime);color:var(--lime-ink)}
+
+/* Leaflet overrides */
+.valve-marker span{display:block;width:20px;height:20px;border-radius:50%;border:3px solid #0b0d11;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+.valve-marker.is-fixed span{opacity:.4}
+.cluster-lime div{width:40px;height:40px;border-radius:50%;background:var(--lime);color:#12140a;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:3px solid #0b0d11;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+.leaflet-popup-content-wrapper{background:var(--dark-surface-2);color:#fff;border-radius:var(--radius-md);box-shadow:0 14px 30px rgba(0,0,0,.5)}
+.leaflet-popup-tip{background:var(--dark-surface-2)}
+.leaflet-popup-content{margin:12px 14px;min-width:180px}
+.popup-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.popup-status{font-size:12.5px;font-weight:600;margin-bottom:2px}
+.popup-meta{font-size:11.5px;color:#9aa0ab}
+.popup-actions{display:flex;gap:8px;margin-top:10px}
+.popup-btn{flex:1;text-align:center;font-size:12px;font-weight:700;padding:7px 8px;border-radius:8px;background:var(--dark-surface);color:#e5e7eb;border:1px solid var(--dark-border)}
+.popup-btn-primary{background:var(--lime);color:var(--lime-ink);border:none}
+.leaflet-control-attribution{background:rgba(15,17,21,.6) !important;color:#8b93a1 !important}
+.leaflet-control-attribution a{color:#c8cdd6 !important}
+
+/* ===== Toast ===== */
+.toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 96px);transform:translateX(-50%) translateY(10px);background:var(--dark-surface-2);color:#fff;font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:999px;border:1px solid var(--dark-border);box-shadow:0 10px 26px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:300}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (min-width:1024px){.toast{bottom:26px}}
+
+/* ===== Scrollbars ===== */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-wrap">
+    <header class="topbar" id="topbar"></header>
+    <main class="content" id="content">
+      <section id="view-home" class="view active"></section>
+      <section id="view-map" class="view"></section>
+      <section id="view-actions" class="view"></section>
+      <section id="view-broken" class="view"></section>
+      <section id="view-stats" class="view"></section>
+      <section id="view-profile" class="view"></section>
+    </main>
+  </div>
+  <button class="fab" id="fabAdd" aria-label="Ny rapport"></button>
+  <nav class="bottom-nav" id="bottomNav"></nav>
+</div>
+
+<div class="sheet-overlay" id="addOverlay">
+  <div class="sheet" id="addSheet" role="dialog" aria-modal="true" aria-label="Ny rapport">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-progress" id="sheetProgress"></div>
+      <button class="sheet-close" id="addCloseBtn" aria-label="Stäng"></button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-footer" id="sheetFooter"></div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="detailOverlay">
+  <div class="sheet" id="detailSheet" role="dialog" aria-modal="true" aria-label="Ventildetaljer">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-header-title">Ventil</div>
+      <button class="sheet-close" id="detailCloseBtn" aria-label="Stäng"></button>
+    </div>
+    <div class="sheet-body" id="detailBody"></div>
+  </div>
+</div>
+
+<input type="file" id="photoInputHidden" accept="image/*" capture="environment" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+'use strict';
+
+/* ===== Data ===== */
+const VALVE_TYPES = [
+  {code:'VAV', name:'Vattenavstängning', color:'#2563eb'},
+  {code:'VBP', name:'Brandpost', color:'#dc2626'},
+  {code:'VSP', name:'Spolpost', color:'#22d3ee'},
+  {code:'DNB', name:'Dagvattenbrunn', color:'#14b8a6'},
+  {code:'SNB', name:'Spillvattenbrunn', color:'#7c3aed'},
+  {code:'VSV', name:'Serviceventil', color:'#84cc16'},
+];
+const DEFECTS = {
+  'Trasig': ['Snurrar bara','Stum','Saknar nyckelstång','Läckljud','Avdragen'],
+  'Trög': ['Kräver 2 man','Kärvar','Går tungt','Trög att öppna'],
+  'Övertäckt': ['Asfalt','Jord','Buskage','Bråte','Mur','Byggnation'],
+  'Betäckning defekt': ['Ska höjas','Trasigt lock','Byta hela','Saknar lock'],
+  'Ej kontrollerad': ['Måste mätas in','Borttagen','Ska tas bort'],
+  'Åtgärdad': ['OK','ej OK'],
+};
+const DEFECT_COLORS = {
+  'Trasig':'#ef4444', 'Trög':'#f43f5e', 'Övertäckt':'#8b5cf6',
+  'Betäckning defekt':'#d946ef', 'Ej kontrollerad':'#64748b', 'Åtgärdad':'#22c55e',
+};
+const AREAS = ['Tullinge','Tumba','Vårsta','Grödinge','Norra'];
+const ACTION_GROUPS = ['Trög','Betäckning defekt','Övertäckt','Ej kontrollerad','Övrigt'];
+const NAV_ITEMS = [
+  {id:'home', label:'Hem', icon:'home'},
+  {id:'map', label:'Karta', icon:'map'},
+  {id:'actions', label:'Åtgärder', icon:'wrench'},
+  {id:'broken', label:'Trasiga', icon:'alert'},
+  {id:'stats', label:'Statistik', icon:'chart'},
+  {id:'profile', label:'Profil', icon:'user'},
+];
+const ICONS = {
+  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/>',
+  map:'<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14"/><path d="M15 6v14"/>',
+  wrench:'<path d="M14.5 3.5a4.8 4.8 0 0 0-6.2 6.2L3 15l3 3 5.3-5.3a4.8 4.8 0 0 0 6.2-6.2l-3.2 3.2-2.5-2.5 3.2-3.2Z"/>',
+  alert:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/>',
+  chart:'<path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-7"/><path d="M2 20h20"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  camera:'<path d="M4 8h3.2L9 5.5h6L16.8 8H20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.3"/>',
+  crosshair:'<circle cx="12" cy="12" r="7"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/>',
+  radio:'<circle cx="12" cy="19" r="1.1" fill="currentColor" stroke="none"/><path d="M8.5 15.8a5 5 0 0 1 7 0"/><path d="M5.5 12.6a9.4 9.4 0 0 1 13 0"/>',
+  pin:'<path d="M12 21s7-6.8 7-11.5A7 7 0 0 0 5 9.5C5 14.2 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.4-4.4"/>',
+  x:'<path d="M18 6 6 18"/><path d="M6 6l12 12"/>',
+  check:'<path d="m20 6-11 11-5-5"/>',
+  route:'<path d="m3 11 18-8-8 18-2.5-8L3 11Z"/>',
+  trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/>',
+  photo:'<path d="M3 5h18v14H3z"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 15-5-4-4 3-3-2-6 5"/>',
+};
+function svg(name, cls){
+  return `<svg class="icon ${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
+}
+
+/* ===== State ===== */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+function safeParse(str, fallback){ try{ const v = JSON.parse(str); return v==null?fallback:v; }catch(e){ return fallback; } }
+
+let ventiler = safeParse(localStorage.getItem('vab8'), []);
+let currentUser = localStorage.getItem('vab8u') || 'fredde';
+let userNotes = localStorage.getItem('vab8n') || '';
+
+let currentView = 'home';
+let pendingScrollGroup = null;
+let currentDetailId = null;
+
+let map, markersLayer, liveMarker, liveWatchId = null, pinMode = false, tempPinMarker = null, mapInited = false;
+let searchDebounce = null;
+let photoAddMode = 'step';
+let addState = null, addStep = 1;
+
+function persist(){ localStorage.setItem('vab8', JSON.stringify(ventiler)); }
+
+function esc(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function defectColor(fullStatus){
+  const cat = (fullStatus||'').split(' - ')[0];
+  return DEFECT_COLORS[cat] || '#9aa0ab';
+}
+function debounce(fn, ms){
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(()=>fn(...args), ms); };
+}
+let toastTimer;
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2400);
+}
+
+/* ===== Chrome (sidebar / topbar / bottom nav / fab) ===== */
+function buildChrome(){
+  $('#sidebar').innerHTML = `
+    <div class="sidebar-brand">${svg('pin')}<span>VentPro</span></div>
+    <nav class="sidebar-nav">${NAV_ITEMS.map(n=>`<button class="nav-item" data-view="${n.id}">${svg(n.icon)}<span>${n.label}</span></button>`).join('')}</nav>
+    <button class="sidebar-add" id="sidebarAddBtn">${svg('plus')}<span>Ny rapport</span></button>
+  `;
+  $('#topbar').innerHTML = `
+    <div class="topbar-brand">${svg('pin')}<span>VentPro</span></div>
+    <div class="topbar-user">${esc(currentUser)}</div>
+  `;
+  $('#bottomNav').innerHTML = NAV_ITEMS.map(n=>`<button class="bn-item" data-view="${n.id}">${svg(n.icon)}<span>${n.label}</span></button>`).join('');
+  $('#fabAdd').innerHTML = svg('plus');
+  markNavActive();
+}
+function markNavActive(){
+  $$('.nav-item,.bn-item').forEach(b => b.classList.toggle('active', b.dataset.view===currentView));
+}
+
+/* ===== View switching ===== */
+function showView(name){
+  currentView = name;
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $(`#view-${name}`).classList.add('active');
+  markNavActive();
+  $('#content').classList.toggle('content--map', name==='map');
+  document.body.classList.toggle('is-map-view', name==='map');
+  if(location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
+  renderView(name);
+}
+function renderView(name){
+  if(name==='home') renderHome();
+  else if(name==='map') renderMapView();
+  else if(name==='actions') renderActions();
+  else if(name==='broken') renderBroken();
+  else if(name==='stats') renderStats();
+  else if(name==='profile') renderProfile();
+}
+
+/* ===== Card component ===== */
+function ventilCard(v, withAction){
+  const t = VALVE_TYPES.find(x=>x.code===v.type) || {color:'#888'};
+  const statusColor = defectColor(v.fullStatus);
+  return `<div class="card" data-id="${v.id}">
+    <div class="card-thumb" ${v.photo?`style="background-image:url('${v.photo}')"`:''}>${v.photo?'':svg('photo')}</div>
+    <div class="card-body">
+      <div class="card-top">
+        <span class="type-badge" style="background:${t.color}">${v.type}</span>
+        <strong>${esc(v.ventilNr)}</strong>
+        ${v.fixed?`<span class="fixed-badge">${svg('check')} Åtgärdad</span>`:''}
+      </div>
+      <div class="card-status" style="color:${statusColor}">${esc(v.fullStatus)}</div>
+      <div class="card-meta">${esc(v.area)}${v.location?' · '+esc(v.location):''}</div>
+      <div class="card-meta card-meta-faint">${esc(v.date)}</div>
+      ${withAction && !v.fixed?`<button class="card-fix-btn" data-action="fix" data-id="${v.id}">${svg('check')} Markera åtgärdad</button>`:''}
+    </div>
+  </div>`;
+}
+function emptyState(msg){
+  return `<div class="empty-state">${svg('pin')}<p>${msg||'Inga ventiler rapporterade än.'}</p><button class="btn-primary" id="emptyAddBtn">${svg('plus')} Rapportera ventil</button></div>`;
+}
+
+/* ===== Home ===== */
+function renderHome(){
+  const total = ventiler.length;
+  const counts = {'Trasig':0,'Trög':0,'Övertäckt':0,'Betäckning defekt':0};
+  ventiler.forEach(v => { const cat = v.fullStatus.split(' - ')[0]; if(counts.hasOwnProperty(cat)) counts[cat]++; });
+  const latest = [...ventiler].sort((a,b)=>b.ts-a.ts).slice(0,4);
+  $('#view-home').innerHTML = `
+    <div class="page-head"><h1>Hej, ${esc(currentUser)}</h1><p class="page-sub">${total} ventiler rapporterade</p></div>
+    <div class="stat-grid">
+      <button class="stat-tile" data-filter="all">${svg('pin')}<span class="stat-num">${total}</span><span class="stat-label">Totalt</span></button>
+      <button class="stat-tile" data-filter="Trasig" style="--accent:${DEFECT_COLORS['Trasig']}">${svg('alert')}<span class="stat-num">${counts['Trasig']}</span><span class="stat-label">Trasiga</span></button>
+      <button class="stat-tile" data-filter="Trög" style="--accent:${DEFECT_COLORS['Trög']}">${svg('wrench')}<span class="stat-num">${counts['Trög']}</span><span class="stat-label">Tröga</span></button>
+      <button class="stat-tile" data-filter="Betäckning defekt" style="--accent:${DEFECT_COLORS['Betäckning defekt']}">${svg('pin')}<span class="stat-num">${counts['Betäckning defekt']}</span><span class="stat-label">Betäckning</span></button>
+      <button class="stat-tile" data-filter="Övertäckt" style="--accent:${DEFECT_COLORS['Övertäckt']}">${svg('map')}<span class="stat-num">${counts['Övertäckt']}</span><span class="stat-label">Övertäckt</span></button>
+    </div>
+    <div class="section-head"><h2>Senaste</h2></div>
+    <div class="card-list">${latest.length?latest.map(v=>ventilCard(v,false)).join(''):emptyState()}</div>
+  `;
+}
+
+/* ===== Actions ===== */
+function renderActions(){
+  const active = ventiler.filter(v => !v.fixed && !v.fullStatus.startsWith('Trasig'));
+  const groups = {}; ACTION_GROUPS.forEach(g => groups[g] = []);
+  active.forEach(v => {
+    const cat = v.fullStatus.split(' - ')[0];
+    (groups[cat] || groups['Övrigt']).push(v);
+  });
+  $('#view-actions').innerHTML = `
+    <div class="page-head"><h1>Åtgärder</h1><p class="page-sub">${active.length} aktiva ärenden</p></div>
+    ${active.length ? ACTION_GROUPS.map(g => groupSection(g, groups[g])).join('') : emptyState('Inga aktiva åtgärder just nu.')}
+  `;
+  if(pendingScrollGroup){
+    const sec = $(`[data-group="${CSS.escape(pendingScrollGroup)}"]`);
+    if(sec){
+      sec.scrollIntoView({behavior:'smooth', block:'start'});
+      sec.classList.add('flash');
+      setTimeout(()=>sec.classList.remove('flash'), 1200);
+    }
+    pendingScrollGroup = null;
+  }
+}
+function groupSection(name, items){
+  if(!items.length) return '';
+  return `<div class="group-section" data-group="${esc(name)}">
+    <div class="group-head"><span>${esc(name)}</span><span class="count-pill">${items.length}</span></div>
+    <div class="card-list">${items.map(v=>ventilCard(v,true)).join('')}</div>
+  </div>`;
+}
+
+/* ===== Broken ===== */
+function renderBroken(){
+  const items = ventiler.filter(v => v.fullStatus.startsWith('Trasig'))
+    .sort((a,b) => (a.fixed===b.fixed?0:(a.fixed?1:-1)) || (b.ts-a.ts));
+  $('#view-broken').innerHTML = `
+    <div class="page-head"><h1>Trasiga</h1><p class="page-sub">${items.length} trasiga ventiler</p></div>
+    <div class="card-list">${items.length?items.map(v=>ventilCard(v,true)).join(''):emptyState('Inga trasiga ventiler registrerade.')}</div>
+  `;
+}
+
+/* ===== Stats ===== */
+function barRow(label, count, max, color){
+  const pct = Math.round(count/max*100);
+  return `<div class="bar-row"><div class="bar-row-top"><span>${esc(label)}</span><span>${count}</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+}
+function renderStats(){
+  const total = ventiler.length;
+  const fixed = ventiler.filter(v=>v.fixed).length;
+  const brokenCount = ventiler.filter(v=>v.fullStatus.startsWith('Trasig')).length;
+  const catCounts = {}; ventiler.forEach(v => { const c=v.fullStatus.split(' - ')[0]; catCounts[c]=(catCounts[c]||0)+1; });
+  const typeCounts = {}; ventiler.forEach(v => { typeCounts[v.type]=(typeCounts[v.type]||0)+1; });
+  const maxCat = Math.max(1, ...Object.keys(DEFECT_COLORS).map(k=>catCounts[k]||0));
+  const maxType = Math.max(1, ...VALVE_TYPES.map(t=>typeCounts[t.code]||0));
+  $('#view-stats').innerHTML = `
+    <div class="page-head"><h1>Statistik</h1></div>
+    <div class="kpi-grid">
+      <div class="kpi-tile"><span class="kpi-num">${total}</span><span class="kpi-label">Totalt</span></div>
+      <div class="kpi-tile"><span class="kpi-num">${total-fixed}</span><span class="kpi-label">Aktiva</span></div>
+      <div class="kpi-tile"><span class="kpi-num">${fixed}</span><span class="kpi-label">Åtgärdade</span></div>
+      <div class="kpi-tile"><span class="kpi-num">${brokenCount}</span><span class="kpi-label">Trasiga</span></div>
+    </div>
+    <div class="section-head"><h2>Per status</h2></div>
+    <div class="bar-list">${Object.keys(DEFECT_COLORS).map(k=>barRow(k, catCounts[k]||0, maxCat, DEFECT_COLORS[k])).join('')}</div>
+    <div class="section-head"><h2>Per typ</h2></div>
+    <div class="bar-list">${VALVE_TYPES.map(t=>barRow(t.code+' — '+t.name, typeCounts[t.code]||0, maxType, t.color)).join('')}</div>
+  `;
+}
+
+/* ===== Profile ===== */
+function renderProfile(){
+  const mine = ventiler.filter(v=>v.reportedBy===currentUser).length;
+  $('#view-profile').innerHTML = `
+    <div class="page-head"><h1>Profil</h1></div>
+    <div class="profile-card">
+      <div class="profile-avatar">${esc((currentUser||'?').slice(0,1).toUpperCase())}</div>
+      <div class="field-label" style="margin-top:0">Namn</div>
+      <input id="userNameInput" class="text-input" value="${esc(currentUser)}">
+      <div class="profile-stat" style="margin-top:6px"><span>${mine}</span> rapporter av dig</div>
+      <div class="profile-stat"><span>${ventiler.length}</span> totalt i systemet</div>
+    </div>
+    <div class="field-label">Anteckningar</div>
+    <textarea id="userNotesInput" class="textarea" rows="5" placeholder="Egna anteckningar…">${esc(userNotes)}</textarea>
+    <button class="btn-danger" id="clearDataBtn">${svg('trash')} Rensa all data</button>
+    <div class="app-version">VentPro · v1.0</div>
+  `;
+  $('#userNameInput').addEventListener('change', e => {
+    currentUser = e.target.value.trim() || 'fredde';
+    localStorage.setItem('vab8u', currentUser);
+    buildChrome();
+    showView(currentView);
+  });
+  $('#userNotesInput').addEventListener('input', debounce(e => {
+    userNotes = e.target.value;
+    localStorage.setItem('vab8n', userNotes);
+  }, 400));
+}
+
+/* ===== Map ===== */
+const MAP_SHELL_HTML = `
+  <div class="map-layout">
+    <div class="map-list-panel" id="mapListPanel">
+      <div class="map-list-header">Ventiler <span class="count-pill" id="mapListCount">0</span></div>
+      <div class="map-list-items" id="mapListItems"></div>
+    </div>
+    <div class="map-canvas-wrap">
+      <div class="map-search">
+        ${svg('search')}
+        <input id="mapSearchInput" placeholder="Sök adress…" autocomplete="off">
+        <div class="map-search-results" id="mapSearchResults"></div>
+      </div>
+      <div id="map" class="leaflet-map"></div>
+      <div class="map-pills">
+        <button class="map-pill" id="pillGps" title="Min position">${svg('crosshair')}</button>
+        <button class="map-pill" id="pillLive" title="Live-spårning">${svg('radio')}</button>
+        <button class="map-pill" id="pillPin" title="Sätt nål">${svg('pin')}</button>
+        <button class="map-pill map-pill-accent" id="pillPhoto" title="Snabbfoto">${svg('camera')}</button>
+      </div>
+    </div>
+  </div>
+`;
+function ensureMapShell(){
+  const view = $('#view-map');
+  if(view.dataset.built) return;
+  view.innerHTML = MAP_SHELL_HTML;
+  view.dataset.built = '1';
+  $('#mapSearchInput').addEventListener('input', onSearchInput);
+}
+function renderMapView(){
+  ensureMapShell();
+  if(!mapInited){ initMap(); mapInited = true; }
+  else { setTimeout(()=>map.invalidateSize(), 30); }
+  renderMapMarkers();
+  renderMapListPanel();
+}
+function makeIcon(type, fixed){
+  const t = VALVE_TYPES.find(x=>x.code===type);
+  const color = t ? t.color : '#888';
+  return L.divIcon({
+    className: 'valve-marker' + (fixed?' is-fixed':''),
+    html: `<span style="background:${color}"></span>`,
+    iconSize: [22,22], iconAnchor: [11,11], popupAnchor: [0,-14],
+  });
+}
+function clusterIconFn(cluster){
+  return L.divIcon({ html: `<div>${cluster.getChildCount()}</div>`, className: 'cluster-lime', iconSize: L.point(40,40) });
+}
+function popupHtml(v){
+  const t = VALVE_TYPES.find(x=>x.code===v.type) || {color:'#888'};
+  return `<div class="popup-card">
+    <div class="popup-top"><span class="type-badge" style="background:${t.color}">${v.type}</span><strong>${esc(v.ventilNr)}</strong></div>
+    <div class="popup-status" style="color:${defectColor(v.fullStatus)}">${esc(v.fullStatus)}</div>
+    <div class="popup-meta">${esc(v.area)}${v.location?' · '+esc(v.location):''}</div>
+    <div class="popup-meta">${esc(v.date)}</div>
+    <div class="popup-actions">
+      <a class="popup-btn" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">${svg('route')} Rutt</a>
+      <button class="popup-btn popup-btn-primary" onclick="openDetail('${v.id}')">Visa</button>
+    </div>
+  </div>`;
+}
+function initMap(){
+  map = L.map('map', { zoomControl:false, attributionControl:true }).setView([59.1949,17.8433], 12);
+  L.control.zoom({ position:'bottomleft' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: 'abcd',
+  }).addTo(map);
+  markersLayer = L.markerClusterGroup({ iconCreateFunction: clusterIconFn, maxClusterRadius: 50 });
+  map.addLayer(markersLayer);
+  map.on('click', onMapClick);
+}
+function onMapClick(e){
+  if(!pinMode) return;
+  if(tempPinMarker) map.removeLayer(tempPinMarker);
+  tempPinMarker = L.marker(e.latlng).addTo(map);
+  pinMode = false;
+  const btn = $('#pillPin'); if(btn) btn.classList.remove('active');
+  openAddSheet({ lat: e.latlng.lat, lng: e.latlng.lng });
+}
+function renderMapMarkers(){
+  if(!mapInited) return;
+  markersLayer.clearLayers();
+  ventiler.forEach(v => {
+    if(v.lat==null || v.lng==null) return;
+    const m = L.marker([v.lat, v.lng], { icon: makeIcon(v.type, v.fixed) });
+    m.bindPopup(popupHtml(v), { className:'valve-popup' });
+    markersLayer.addLayer(m);
+  });
+}
+function renderMapListPanel(){
+  const sorted = [...ventiler].sort((a,b)=>b.ts-a.ts);
+  $('#mapListCount').textContent = sorted.length;
+  $('#mapListItems').innerHTML = sorted.length ? sorted.map(v=>ventilCard(v,false)).join('') : emptyState('Inga ventiler ännu.');
+}
+function locateMe(){
+  if(!navigator.geolocation){ toast('GPS stöds inte i den här webbläsaren'); return; }
+  toast('Hämtar position…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    map.flyTo([latitude, longitude], 16);
+    L.circleMarker([latitude, longitude], { radius:8, color:'#22d3ee', weight:3, fillColor:'#22d3ee', fillOpacity:.5 }).addTo(map);
+  }, () => toast('Kunde inte hämta position'), { enableHighAccuracy:true, timeout:10000 });
+}
+function toggleLive(){
+  const btn = $('#pillLive');
+  if(liveWatchId){
+    navigator.geolocation.clearWatch(liveWatchId);
+    liveWatchId = null;
+    if(liveMarker){ map.removeLayer(liveMarker); liveMarker = null; }
+    if(btn) btn.classList.remove('active');
+    return;
+  }
+  if(!navigator.geolocation){ toast('GPS stöds inte i den här webbläsaren'); return; }
+  if(btn) btn.classList.add('active');
+  liveWatchId = navigator.geolocation.watchPosition(pos => {
+    const ll = [pos.coords.latitude, pos.coords.longitude];
+    if(!liveMarker){ liveMarker = L.circleMarker(ll, { radius:8, color:'#22d3ee', weight:3, fillColor:'#22d3ee', fillOpacity:.6 }).addTo(map); }
+    else liveMarker.setLatLng(ll);
+  }, () => toast('Kunde inte spåra position'), { enableHighAccuracy:true, maximumAge:5000 });
+}
+function togglePinMode(){
+  pinMode = !pinMode;
+  const btn = $('#pillPin'); if(btn) btn.classList.toggle('active', pinMode);
+  toast(pinMode ? 'Klicka på kartan för att sätta en nål' : 'Nålläge av');
+}
+function onSearchInput(e){
+  clearTimeout(searchDebounce);
+  const q = e.target.value.trim();
+  if(q.length < 3){ renderSearchResults([]); return; }
+  searchDebounce = setTimeout(()=>doSearch(q), 450);
+}
+async function doSearch(q){
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=se&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(6000) });
+    const data = await res.json();
+    renderSearchResults(data);
+  }catch(err){ renderSearchResults([]); }
+}
+function renderSearchResults(list){
+  const box = $('#mapSearchResults'); if(!box) return;
+  if(!list.length){ box.innerHTML=''; box.classList.remove('open'); return; }
+  box.innerHTML = list.map(r => `<button class="search-result" data-lat="${r.lat}" data-lng="${r.lon}" data-label="${esc(r.display_name.split(',')[0])}">${esc(r.display_name)}</button>`).join('');
+  box.classList.add('open');
+}
+
+/* ===== Add-report sheet ===== */
+function openAddSheet(prefill){
+  addState = { type:'VAV', number:'', defekt:null, detail:null, area:null, location:'', note:'', lat:null, lng:null, photo:null, ...(prefill||{}) };
+  addStep = 1;
+  $('#addOverlay').classList.add('open');
+  document.body.classList.add('sheet-open');
+  renderAddSheet();
+}
+function closeAddSheet(){
+  $('#addOverlay').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+  if(tempPinMarker && map){ map.removeLayer(tempPinMarker); tempPinMarker = null; }
+}
+function canProceed(){
+  if(addStep===1) return addState.number.length > 0;
+  if(addStep===2) return !!addState.defekt;
+  if(addStep===3) return !!addState.area;
+  return true;
+}
+function renderAddSheet(){
+  $('#sheetProgress').innerHTML = [1,2,3,4].map(i => `<span class="dot ${i<=addStep?'filled':''}"></span>`).join('');
+  const renderers = { 1: stepType, 2: stepDefect, 3: stepArea, 4: stepConfirm };
+  $('#sheetBody').innerHTML = renderers[addStep]();
+  attachStepEvents();
+  renderSheetFooter();
+}
+function renderSheetFooter(){
+  let html = addStep>1 ? `<button class="btn-ghost" id="stepBack">Tillbaka</button>` : `<span></span>`;
+  html += addStep<4
+    ? `<button class="btn-primary" id="stepNext" ${canProceed()?'':'disabled'}>Nästa</button>`
+    : `<button class="btn-primary btn-save" id="stepSave">${svg('check')} Spara</button>`;
+  $('#sheetFooter').innerHTML = html;
+}
+function attachStepEvents(){
+  if(addStep===1){
+    const inp = $('#numberInput');
+    if(inp){
+      inp.addEventListener('input', e => {
+        addState.number = e.target.value.replace(/\D/g,'');
+        e.target.value = addState.number;
+        const prev = $('.preview-id'); if(prev) prev.textContent = addState.type + (addState.number?('-'+addState.number):'');
+        renderSheetFooter();
+      });
+      inp.focus();
+    }
+  } else if(addStep===3){
+    const locInput = $('#locationInput'); if(locInput) locInput.addEventListener('input', e => addState.location = e.target.value);
+    const noteInput = $('#noteInput'); if(noteInput) noteInput.addEventListener('input', e => addState.note = e.target.value);
+  }
+}
+function stepType(){
+  const mainTypes = ['VAV','VBP'];
+  const moreTypes = VALVE_TYPES.filter(t => !mainTypes.includes(t.code));
+  return `<div class="step-title">Välj ventiltyp</div>
+    <div class="type-grid-main">
+      ${mainTypes.map(code => {
+        const t = VALVE_TYPES.find(x=>x.code===code);
+        return `<button class="type-chip big ${addState.type===code?'selected':''}" data-type="${code}" style="--c:${t.color}"><strong>${code}</strong><span>${t.name}</span></button>`;
+      }).join('')}
+    </div>
+    <div class="type-grid-more">
+      ${moreTypes.map(t => `<button class="type-chip ${addState.type===t.code?'selected':''}" data-type="${t.code}" style="--c:${t.color}">${t.code}</button>`).join('')}
+    </div>
+    <div class="field-label">Ventilnummer</div>
+    <div class="number-input-wrap">
+      <span class="number-prefix">${addState.type}-</span>
+      <input id="numberInput" class="number-input" inputmode="numeric" pattern="[0-9]*" placeholder="74259" value="${esc(addState.number)}">
+    </div>
+    <div class="preview-id">${addState.type}${addState.number?('-'+esc(addState.number)):''}</div>`;
+}
+function stepDefect(){
+  return `<div class="step-title">Vad är felet?</div>
+    <div class="defect-grid">${Object.keys(DEFECTS).map(d => `<button class="defect-chip ${addState.defekt===d?'selected':''}" data-defekt="${esc(d)}" style="--c:${DEFECT_COLORS[d]}">${esc(d)}</button>`).join('')}</div>
+    ${addState.defekt ? `<div class="field-label">Detaljer (valfritt)</div><div class="detail-grid">${DEFECTS[addState.defekt].map(d => `<button class="detail-chip ${addState.detail===d?'selected':''}" data-detail="${esc(d)}">${esc(d)}</button>`).join('')}</div>` : ''}`;
+}
+function stepArea(){
+  return `<div class="step-title">Område &amp; plats</div>
+    <div class="area-grid">${AREAS.map(a => `<button class="area-chip ${addState.area===a?'selected':''}" data-area="${esc(a)}">${esc(a)}</button>`).join('')}</div>
+    <div class="field-label">Plats</div>
+    <div class="location-row">
+      <input id="locationInput" class="text-input" placeholder="Gata, adress…" value="${esc(addState.location)}">
+      <button class="btn-icon-square" id="gpsLocationBtn" title="Hämta GPS">${svg('crosshair')}</button>
+    </div>
+    ${addState.lat!=null ? `<div class="gps-chip">${svg('pin')} ${addState.lat.toFixed(5)}, ${addState.lng.toFixed(5)}</div>` : ''}
+    <div class="field-label">Notering (valfritt)</div>
+    <textarea id="noteInput" class="textarea" rows="3" placeholder="Skriv en kort notering…">${esc(addState.note)}</textarea>
+    <div class="field-label">Foto</div>
+    <div class="photo-zone">
+      ${addState.photo
+        ? `<div class="photo-preview"><img src="${addState.photo}"><button class="photo-remove" id="photoRemoveBtn">${svg('x')}</button></div>`
+        : `<button class="photo-add-btn" id="photoAddBtn">${svg('camera')}<span>Ta foto</span></button>`}
+    </div>`;
+}
+function stepConfirm(){
+  const t = VALVE_TYPES.find(x=>x.code===addState.type);
+  const statusText = addState.defekt + (addState.detail ? ' - '+addState.detail : '');
+  return `<div class="step-title">Bekräfta</div>
+    <div class="confirm-card">
+      <div class="confirm-id"><span class="type-badge" style="background:${t.color}">${addState.type}</span><strong>${addState.type}-${esc(addState.number)}</strong></div>
+      <div class="confirm-row"><span>Status</span><strong style="color:${defectColor(statusText)}">${esc(statusText)}</strong></div>
+      <div class="confirm-row"><span>Område</span><strong>${esc(addState.area||'—')}</strong></div>
+      <div class="confirm-row"><span>Plats</span><strong>${esc(addState.location||'—')}</strong></div>
+      <div class="confirm-row"><span>GPS</span><strong>${addState.lat!=null ? addState.lat.toFixed(5)+', '+addState.lng.toFixed(5) : 'Ingen position'}</strong></div>
+      <div class="confirm-row"><span>Tid</span><strong>${new Date().toLocaleString('sv-SE')}</strong></div>
+      <div class="confirm-row"><span>Foto</span><strong>${addState.photo?'✓ Bifogat':'Inget foto'}</strong></div>
+      ${addState.note ? `<div class="confirm-note">${esc(addState.note)}</div>` : ''}
+      ${addState.photo ? `<img class="confirm-photo" src="${addState.photo}">` : ''}
+    </div>`;
+}
+function saveReport(){
+  const v = {
+    id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    ts: Date.now(),
+    ventilNr: `${addState.type}-${addState.number}`,
+    type: addState.type,
+    area: addState.area,
+    location: addState.location || '',
+    fullStatus: addState.defekt + (addState.detail ? ' - '+addState.detail : ''),
+    note: addState.note || '',
+    reportedBy: currentUser,
+    fixed: addState.defekt === 'Åtgärdad' && addState.detail === 'OK',
+    lat: addState.lat, lng: addState.lng,
+    date: new Date().toLocaleString('sv-SE'),
+    photo: addState.photo || null,
+  };
+  ventiler.push(v);
+  persist();
+  closeAddSheet();
+  toast('Sparat! ' + v.ventilNr);
+  showView(currentView);
+  if(mapInited) renderMapMarkers();
+}
+
+/* ===== Detail sheet ===== */
+function openDetail(id){
+  const v = ventiler.find(x=>x.id===id);
+  if(!v) return;
+  currentDetailId = id;
+  const t = VALVE_TYPES.find(x=>x.code===v.type) || {color:'#888'};
+  $('#detailBody').innerHTML = `
+    <div class="confirm-card">
+      <div class="confirm-id"><span class="type-badge" style="background:${t.color}">${v.type}</span><strong>${esc(v.ventilNr)}</strong>${v.fixed?`<span class="fixed-badge">${svg('check')} Åtgärdad</span>`:''}</div>
+      <div class="confirm-row"><span>Status</span><strong style="color:${defectColor(v.fullStatus)}">${esc(v.fullStatus)}</strong></div>
+      <div class="confirm-row"><span>Område</span><strong>${esc(v.area)}</strong></div>
+      <div class="confirm-row"><span>Plats</span><strong>${esc(v.location||'—')}</strong></div>
+      <div class="confirm-row"><span>Rapporterad av</span><strong>${esc(v.reportedBy)}</strong></div>
+      <div class="confirm-row"><span>Tid</span><strong>${esc(v.date)}</strong></div>
+      ${v.note?`<div class="confirm-note">${esc(v.note)}</div>`:''}
+      ${v.photo?`<img class="confirm-photo" src="${v.photo}">`:''}
+    </div>
+    <div class="detail-actions">
+      ${v.lat!=null?`<button class="btn-ghost" id="detailMapBtn">${svg('map')} Visa på karta</button>`:''}
+      ${v.lat!=null?`<a class="btn-ghost" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}" target="_blank" rel="noopener">${svg('route')} Rutt</a>`:''}
+      <button class="btn-primary" id="detailFixBtn">${v.fixed?svg('x')+' Markera ej åtgärdad':svg('check')+' Markera åtgärdad'}</button>
+      <button class="btn-danger" id="detailDeleteBtn">${svg('trash')} Ta bort</button>
+    </div>
+  `;
+  $('#detailOverlay').classList.add('open');
+  document.body.classList.add('sheet-open');
+}
+window.openDetail = openDetail;
+function closeDetailSheet(){
+  $('#detailOverlay').classList.remove('open');
+  document.body.classList.remove('sheet-open');
+}
+function toggleFixed(id){
+  const v = ventiler.find(x=>x.id===id);
+  if(!v) return;
+  v.fixed = !v.fixed;
+  persist();
+  renderView(currentView);
+  if(mapInited) renderMapMarkers();
+}
+function deleteVentil(id){
+  ventiler = ventiler.filter(x=>x.id!==id);
+  persist();
+  renderView(currentView);
+  if(mapInited) renderMapMarkers();
+  toast('Borttagen');
+}
+function handleStatFilter(filter){
+  if(filter==='all'){ showView('stats'); return; }
+  if(filter==='Trasig'){ showView('broken'); return; }
+  pendingScrollGroup = filter;
+  showView('actions');
+}
+
+/* ===== Photo handling ===== */
+function compressImage(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1280;
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          if(width > height){ height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function handlePhotoInputChange(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  toast('Bearbetar foto…');
+  let dataUrl;
+  try{ dataUrl = await compressImage(file); }
+  catch(err){ toast('Kunde inte läsa bilden'); return; }
+  if(photoAddMode === 'quick'){ openAddSheet({ photo: dataUrl }); locateMeSilent(); }
+  else { addState.photo = dataUrl; renderAddSheet(); }
+}
+async function reverseGeocode(lat, lng){
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    const addr = d.address || {};
+    return addr.road ? (addr.road + (addr.house_number?' '+addr.house_number:'')) : (d.display_name ? d.display_name.split(',')[0] : '');
+  }catch(err){ return ''; }
+}
+function locateMeSilent(){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    addState.lat = pos.coords.latitude;
+    addState.lng = pos.coords.longitude;
+    if(addStep===3) renderAddSheet();
+    reverseGeocode(addState.lat, addState.lng).then(guess => {
+      if(guess){ addState.location = guess; if(addStep===3) renderAddSheet(); }
+    });
+  }, () => {}, { enableHighAccuracy:true, timeout:10000 });
+}
+function fetchLocation(){
+  if(!navigator.geolocation){ toast('GPS stöds inte i den här webbläsaren'); return; }
+  const btn = $('#gpsLocationBtn');
+  if(btn){ btn.classList.add('loading'); btn.disabled = true; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    addState.lat = pos.coords.latitude;
+    addState.lng = pos.coords.longitude;
+    toast('Position hämtad');
+    renderAddSheet();
+    reverseGeocode(addState.lat, addState.lng).then(guess => {
+      if(guess){ addState.location = guess; if(addStep===3) renderAddSheet(); }
+    });
+  }, () => {
+    if(btn){ btn.classList.remove('loading'); btn.disabled = false; }
+    toast('Kunde inte hämta position');
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
+function quickPhotoAdd(){ photoAddMode = 'quick'; $('#photoInputHidden').click(); }
+
+/* ===== Global click delegation ===== */
+function handleGlobalClick(e){
+  let t;
+  if((t = e.target.closest('#stepNext'))){ if(canProceed()){ addStep++; renderAddSheet(); } return; }
+  if((t = e.target.closest('#stepBack'))){ addStep--; renderAddSheet(); return; }
+  if((t = e.target.closest('#stepSave'))){ saveReport(); return; }
+  if((t = e.target.closest('#addCloseBtn'))){ closeAddSheet(); return; }
+  if((t = e.target.closest('#detailCloseBtn'))){ closeDetailSheet(); return; }
+  if((t = e.target.closest('[data-type]'))){ addState.type = t.dataset.type; renderAddSheet(); return; }
+  if((t = e.target.closest('[data-defekt]'))){ addState.defekt = t.dataset.defekt; addState.detail = null; renderAddSheet(); return; }
+  if((t = e.target.closest('[data-detail]'))){ addState.detail = addState.detail===t.dataset.detail ? null : t.dataset.detail; renderAddSheet(); return; }
+  if((t = e.target.closest('[data-area]'))){ addState.area = t.dataset.area; renderAddSheet(); return; }
+  if((t = e.target.closest('#gpsLocationBtn'))){ fetchLocation(); return; }
+  if((t = e.target.closest('#photoAddBtn'))){ photoAddMode = 'step'; $('#photoInputHidden').click(); return; }
+  if((t = e.target.closest('#photoRemoveBtn'))){ addState.photo = null; renderAddSheet(); return; }
+  if((t = e.target.closest('#detailFixBtn'))){ toggleFixed(currentDetailId); openDetail(currentDetailId); return; }
+  if((t = e.target.closest('#detailDeleteBtn'))){ if(confirm('Ta bort denna rapport?')){ deleteVentil(currentDetailId); closeDetailSheet(); } return; }
+  if((t = e.target.closest('#detailMapBtn'))){
+    const v = ventiler.find(x=>x.id===currentDetailId);
+    closeDetailSheet();
+    showView('map');
+    if(v && v.lat!=null) setTimeout(()=>map.flyTo([v.lat, v.lng], 17), 120);
+    return;
+  }
+  if((t = e.target.closest('#pillGps'))){ locateMe(); return; }
+  if((t = e.target.closest('#pillLive'))){ toggleLive(); return; }
+  if((t = e.target.closest('#pillPin'))){ togglePinMode(); return; }
+  if((t = e.target.closest('#pillPhoto'))){ quickPhotoAdd(); return; }
+  if((t = e.target.closest('#mapSearchResults .search-result'))){
+    const lat = +t.dataset.lat, lng = +t.dataset.lng;
+    if(map) map.flyTo([lat,lng], 16);
+    $('#mapSearchResults').innerHTML = ''; $('#mapSearchResults').classList.remove('open');
+    const si = $('#mapSearchInput'); if(si) si.value = t.dataset.label || '';
+    return;
+  }
+  if((t = e.target.closest('[data-action="fix"]'))){ toggleFixed(t.dataset.id); return; }
+  if((t = e.target.closest('.card'))){ openDetail(t.dataset.id); return; }
+  if((t = e.target.closest('[data-filter]'))){ handleStatFilter(t.dataset.filter); return; }
+  if((t = e.target.closest('[data-view]'))){ showView(t.dataset.view); return; }
+  if(e.target.closest('#clearDataBtn')){
+    if(confirm('Radera all lokal data? Detta går inte att ångra.')){
+      ventiler = [];
+      localStorage.removeItem('vab8');
+      toast('Data rensad');
+      showView('home');
+      if(mapInited) renderMapMarkers();
+    }
+    return;
+  }
+  if(e.target.closest('#fabAdd') || e.target.closest('#sidebarAddBtn') || e.target.closest('#emptyAddBtn')){ openAddSheet(); return; }
+}
+
+/* ===== Init ===== */
+function init(){
+  buildChrome();
+  document.addEventListener('click', handleGlobalClick);
+  $('#photoInputHidden').addEventListener('change', handlePhotoInputChange);
+  $('#addOverlay').addEventListener('click', e => { if(e.target.id==='addOverlay') closeAddSheet(); });
+  $('#detailOverlay').addEventListener('click', e => { if(e.target.id==='detailOverlay') closeDetailSheet(); });
+  window.addEventListener('hashchange', () => {
+    const v = location.hash.slice(1);
+    if(v && v!==currentView && NAV_ITEMS.some(n=>n.id===v)) showView(v);
+  });
+  const startView = (location.hash||'#home').slice(1);
+  showView(NAV_ITEMS.some(n=>n.id===startView) ? startView : 'home');
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
